@@ -1,0 +1,189 @@
+bsot-message = $bsot-message-type .within bsot-message-framework
+
+SUIT_Envelope = bstr
+
+bsot-message-framework = [
+  type: uint (0..23) / $bsot-type-extension,
+  options: { * bsot-option },
+  * uint; further integers, e.g., for data-item-requested
+]
+
+bsot-option = (uint => any)
+
+; messages defined below:
+$bsot-message-type /= bsot-query-att
+$bsot-message-type /= bsot-response-att
+$bsot-message-type /= bsot-query-data
+$bsot-message-type /= bsot-response-data
+$bsot-message-type /= update
+$bsot-message-type /= bsot-success
+$bsot-message-type /= bsot-error
+
+; message type numbers, uint (0..23)
+BSOT-TYPE-query-att = 1
+BSOT-TYPE-response-att = 2
+BSOT-TYPE-query-data = 3
+BSOT-TYPE-response-data = 4
+BSOT-TYPE-update = 5
+BSOT-TYPE-bsot-success = 6
+BSOT-TYPE-bsot-error = 7
+
+version = uint .size 4
+;ext-info = uint .size 4
+
+; data items as bitmaps
+;data-item-requested = uint .size 8
+;attestation = 1
+;$data-item-requested /= attestation
+;extensions = 2
+;$data-item-requested /= extensions
+
+bsot-query-att = [
+  type: BSOT-TYPE-query-att,
+  options: {
+    token => bstr .size (32),
+    challenge => bstr .size (32),
+    ? supported-cipher-suites => [ + suite ],
+    ? supported-freshness-mechanisms => [ + freshness-mechanism ],
+    ? versions => [ + version ],
+  },
+  ;data-item-requested: data-item-requested
+]
+
+; ciphersuites
+suite = [
+  bsot-cose-sign-algs / nil,
+  bsot-cose-encrypt-algs / nil,
+  bsot-cose-mac-algs / nil
+]
+
+bsot-cose-sign-algs /= cose-alg-es256
+bsot-cose-sign-algs /= cose-alg-eddsa
+bsot-cose-sign-algs /= cose-alg-ps256
+bsot-cose-sign-algs /= cose-alg-ps384
+bsot-cose-sign-algs /= cose-alg-ps512
+bsot-cose-sign-algs /= cose-alg-rsa-oaep-256
+bsot-cose-sign-algs /= cose-alg-rsa-oaep-512
+bsot-cose-encrypt-algs /= cose-alg-accm-16-64-128
+bsot-cose-mac-algs /= cose-alg-hmac-256
+
+; algorithm identifiers defined in the IANA COSE Algorithms Registry
+cose-alg-es256 = -7
+cose-alg-eddsa = -8
+cose-alg-ps256 = -37
+cose-alg-ps384 = -38
+cose-alg-ps512 = -39
+cose-alg-rsa-oaep-256 = -41
+cose-alg-rsa-oaep-512 = -42
+cose-alg-accm-16-64-128 = 10
+cose-alg-hmac-256 = 5
+
+; freshness-mechanisms
+freshness-mechanism = uint .size 4
+
+;FRESHNESS_NONCE = 0
+;FRESHNESS_TIMESTAMP = 1
+;FRESHNESS_EPOCH_ID = 2
+;$BSOT-freshness-mechanism /= FRESHNESS_NONCE
+;$BSOT-freshness-mechanism /= FRESHNESS_TIMESTAMP
+;$BSOT-freshness-mechanism /= FRESHNESS_EPOCH_ID
+
+bsot-response-att = [
+  type: BSOT-TYPE-response-att,
+  options: {
+    token => bstr .size (8..64),
+    ? selected-cipher-suite => suite,
+    ? selected-version => version,
+    evidence-format => text,; how to express this as EAT format???????????????????????????????????????????
+    evidence => bstr,
+  }
+]
+
+bsot-query-data = [
+  type: BSOT-TYPE-query-data,
+  options:{
+    token => bstr .size (8..64),
+    ? selected-cipher-suite => suite,
+    ? selected-version => version,
+    query-format => text,;the format of query information based on the specification of data center 
+    query => bstr,
+  }
+]
+
+bsot-response-data = [
+  type: BSOT-TYPE-response-data,
+  options:{
+    token => bstr .size (8..64),
+    ? selected-cipher-suite => suite,
+    ? selected-version => version,
+    response-format => text,
+    response => bstr,
+  }
+]
+
+update = [
+  type: BSOT-TYPE-update,
+  options: {
+    token => bstr .size (8..64),
+    manifest-list => [ + bstr .cbor SUIT_Envelope ],
+    ? selected-cipher-suite => suite,
+    ? selected-version => version,
+  }
+]
+
+bsot-success = [
+  type: BSOT-TYPE-bsot-success,
+  options: {
+    token => bstr .size (8..64),
+    msg => text .size (1..128),
+    ? selected-cipher-suite => suite,
+    ? selected-version => version
+  }
+]
+
+bsot-error = [
+  type: BSOT-TYPE-bsot-error,
+  options: {
+    token => bstr .size (8..64),
+    err-msg => text .size (1..128),
+    ? supported-cipher-suites => [ + suite ],
+    ? versions => [ + version ],
+  },
+  err-code: uint (0..23)
+]
+; The err-code parameter, uint (0..23)
+;ERR_PERMANENT_ERROR = 1
+;ERR_UNSUPPORTED_EXTENSION = 2
+;ERR_UNSUPPORTED_FRESHNESS_MECHANISMS = 3
+;ERR_UNSUPPORTED_MSG_VERSION = 4
+;ERR_UNSUPPORTED_CIPHER_SUITES = 5
+;ERR_BAD_CERTIFICATE = 6
+;ERR_CERTIFICATE_EXPIRED = 9
+;ERR_TEMPORARY_ERROR = 10
+;ERR_MANIFEST_PROCESSING_FAILED = 17
+
+; labels of mapkey for bsot message parameters, uint (0..23)
+supported-cipher-suites = 1
+challenge = 2
+versions = 3
+selected-cipher-suite = 5
+selected-version = 6
+evidence = 7
+;tc-list = 8
+;ext-list = 9
+manifest-list = 10
+msg = 11
+err-msg = 12
+evidence-format = 13
+;requested-tc-list = 14
+;unneeded-tc-list = 15
+;component-id = 16
+;tc-manifest-sequence-number = 17
+;have-binary = 18
+;suit-reports = 19
+token = 20
+supported-freshness-mechanisms = 21
+query-format = 22
+query = 23
+response-format =24
+response =25
